@@ -1,6 +1,6 @@
 # MIDI-bit
 MIDI Practice Monitor
-&copy;2024 Rob Cranfill
+&copy;2026 Rob Cranfill
 
 # Purpose
 Elevator Pitch: A Fitbit for MIDI keyboards. Tells you how much you have practiced via various metrics.
@@ -9,21 +9,23 @@ Elevator Pitch: A Fitbit for MIDI keyboards. Tells you how much you have practic
 Something that plugs into the USB port of a MIDI keyboard, with auto start/stop, so you can forget about it.
 
 Minimum Viable Product: Accumulate total practice time until reset.
-
 Stretch goals: Internet connectivity, with an app to slice and dice the data all pretty-like.
+Version 2: Accumulate two metrics: practice time and "play" time.
+
 
 # Operation
-* Plug it in to MIDI & USB power (Feather can run on battery but is that practical?)
+* Plug it in to MIDI & USB power.
 * Play the keyboard and watch your time accumulate!
-* If no MIDI is connected, or no MIDI events are detected in the timeout period (60 seconds in RUN mode, 10 seconds in DEV mode (see below)) the screen will be blanked and the red LED will blink once per second (3 blinks per second if no MIDI, just for now).
 * Keyboard control sequences
   * In order to send commands to the unit from the MIDI keyboard, instead of using MIDI CC or PC commands, which some keyboards may not accomodate, you can play the first eight notes of Beethoven's 5th, starting on G above middle C, to get the unit's attentions.
     * That's G G G Eb F F F D; the tempo doesn't matter.
-    * After the attention sequence, 
+    * After the attention sequence,
       * Middle C: Zero out session data, both onscreen and written it to storage.
       * D above middle C: Toggle next RUN/DEV mode (see below)
-      * Unimplemented/not useful?
-        * Write session data immediately.
+      * E above middle C: Increment screen brightness; rolls thru a few useful values.
+    * Any other key after the attention sequence is ignored and normal operation resumes.
+
+* If no MIDI is connected, or no MIDI events are detected in the timeout period (60 seconds in RUN mode, 10 seconds in DEV mode (see below)) the screen will be blanked and the red LED will blink once per second (3 blinks per second if no MIDI, just for now).
 
 * RUN/DEV mode
   * For now, there are these two modes. Useful for development, but ultimately not needed.
