@@ -1,12 +1,9 @@
 
 # This is the real 'main' for MIDI-bit. All else is testing.
 #
-import midibit2
+import a_midibit2
 
-# import tft_test_2
-
-
-
+# import test.tft_test_2a
 
 # import tft_example 
 

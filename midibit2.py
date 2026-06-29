@@ -2,9 +2,9 @@
 
 a.k.a. MIDI-bit - A fitbit for your MIDI keyboard
 
-(c)2024 Rob Cranfill
+(c)2026 Rob Cranfill
 
-See https://github.com/RobCranfill/MIDI-bit
+See https://github.com/RobCranfill/MIDIbit2
 
 Version 1 - Minimum Viable Product - Just keeps track of elapsed time spent practicing.
 Version 1TFT - for TFT display

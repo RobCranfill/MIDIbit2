@@ -1,4 +1,4 @@
-# MIDI-bit
+# MIDIbit
 MIDI Practice Monitor
 &copy;2026 Rob Cranfill
 
@@ -9,8 +9,8 @@ Elevator Pitch: A Fitbit for MIDI keyboards. Tells you how much you have practic
 Something that plugs into the USB port of a MIDI keyboard, with auto start/stop, so you can forget about it.
 
 Minimum Viable Product: Accumulate total practice time until reset.
-Stretch goals: Internet connectivity, with an app to slice and dice the data all pretty-like.
 Version 2: Accumulate two metrics: practice time and "play" time.
+Stretch goals: Internet connectivity, with an app to slice and dice the data all pretty-like.
 
 
 # Operation
@@ -41,9 +41,8 @@ Version 2: Accumulate two metrics: practice time and "play" time.
 
 
 # Hardware Requirements for this project
-* Adafruit "RP2040 with USB A Host" (Adafruit part number 5723)
-* Adafruit 0.91" OLED Display (P/N 4440)
-  * TODO: Replace with something bigger, color?
+* Adafruit "RP2040 with USB A Host" (Adafruit produt ID 5723)
+* Adafruit 1.44" 128x128 TFT (product ID 2088)
 * Power supply
   * Needs to be plugged in, either to wall or USB power from keyboard.
   *  TODO: Power from Roland USB A port seems problematic. Why?
@@ -51,19 +50,16 @@ Version 2: Accumulate two metrics: practice time and "play" time.
 
 # Software Requirements
 * CircuitPython
-  * 9.2.0 used currently.
+  * 10.2.1 used currently.
 * Adafruit support libraries
   * See requirements.txt for complete list and latest versions used.
-* Font: 22-point bitmap of FreeType-CMU Typewriter Text-Bold-R-Normal, rendered from OpenType font "cmuntb.ttf", converted by Andrey V. Panov from TeX fonts.
+* Font: 22-point bitmap of FreeType-CMU Typewriter Text-Bold-R-Normal, rendered from OpenType font "cmuntb.ttf", converted by Andrey V. Panov from TeX fonts. (Included)
 
 
 # Open Issues (also see GitHub)
 * V1: Total practice time since reset.
-* V2
-  * Will require networking obviously.
-  * Keypresses? Silly but fun.
-  * Sessions? Min/max, mean, etc.
+* V2:"Practice" .vs. "play" time - two values accumulated and stored.
 
 
 # Testing
-* 
+* It would be nice to be able to test things without an actual MIDI keyboard attached. Hmmm.
