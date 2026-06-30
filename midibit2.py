@@ -21,15 +21,17 @@ To force startup mode (see README file)
 
     TODO:
 
-    Things done, I think:
-     ! - show something when scanning for MIDI
-     ! - if looking for MIDI, don't timeout and blank the screen? 
-     ? - if looking for MIDI and a device gets plugged in, un-blank.
-     ! - erase "Found midi device" message at start.
-
     Not done:
+     - after switching dev/run mode, reboot mcu?
+     - show more info at startup? dev mode, uh?
+     - save prac/play mode?
+
+    Things done, I think:
      - show message when changing backlight level?
-     - after switching dev mode, reboot?
+     - show something when scanning for MIDI
+     - if looking for MIDI, don't timeout and blank the screen? 
+     - if looking for MIDI and a device gets plugged in, un-blank.
+     - erase "Found midi device" message at start.
 
     Can't reproduce?
      - something wrong with "Found Roland Digital Piano" message at start - wraps wrong.
@@ -37,7 +39,6 @@ To force startup mode (see README file)
         - working ok now? (the initial text painting is kinda slow but ok, kinda cool)
 
 """
-
 
 # stdlibs
 import board
@@ -352,11 +353,11 @@ display.set_text_2("??") # for now
 
 
 # V2: the big diff!
-# Determines whether we accumulate to total_seconds (TODO: misnomer; rename) or play_seconds
+# Determines whether we accumulate to prac_seconds or play_seconds
 practice_not_play_mode = True
 
 # NOTES FOR UPDATE
-#  total_seconds: total practice time, accumulated to when in right mode, and saved.
+#  prac_seconds: practice time, accumulated to when in right mode, and saved.
 #  play_seconds: new 'play' mode time, ditto.
 
 
@@ -368,10 +369,10 @@ set_display_practice_active(display, practice_not_play_mode)
 in_dev_mode = set_run_or_dev()
 
 # Load previous total time from text file.
-total_seconds, play_seconds = read_session_data()
-print(f"read_session_data: {total_seconds=}, {play_seconds=}")
+prac_seconds, play_seconds = read_session_data()
+print(f"read_session_data: {prac_seconds=}, {play_seconds=}")
 
-show_total_time(display, total_seconds, play_seconds)
+show_total_time(display, prac_seconds, play_seconds)
 
 last_event_time = time.monotonic()
 in_session = False
@@ -382,7 +383,7 @@ session_length = 0
 # last_displayed_time is the (integer) time we last displayed; only update if changed.
 # (The time itself is a float that's always changing.)
 # 
-last_displayed_time = int(total_seconds if practice_not_play_mode else play_seconds)
+last_displayed_time = int(prac_seconds if practice_not_play_mode else play_seconds)
 
 idle_start_time = time.monotonic()
 idle_led_blip_time = idle_start_time
@@ -441,11 +442,13 @@ while True:
         # Assume this is a MIDI disconnect?
         if in_session:
 
-            # FIXME: V2
-            total_seconds_temp = total_seconds + session_length
-            print(f"* Force write: {total_seconds=}, {session_length=}")
-
-            try_write_session_data(in_dev_mode, display, total_seconds+session_length, 666)
+            # FIXME: still wrong for V2?
+            if practice_not_play_mode:
+                print(f"* Force write: {prac_seconds+session_length=}, {play_seconds=}")
+                try_write_session_data(in_dev_mode, display, prac_seconds+session_length, play_seconds)
+            else:
+                print(f"* Force write: {prac_seconds=}, {play_seconds+session_length=}")
+                try_write_session_data(in_dev_mode, display, prac_seconds, play_seconds+session_length)
 
             # TODO: end the session?
 
@@ -486,7 +489,7 @@ while True:
             in_session = True
 
             # This would only be missing for <1 sec, but hey.
-            show_total_time(display, total_seconds, play_seconds)
+            show_total_time(display, prac_seconds, play_seconds)
 
         # Look for command sequences.
         if isinstance(msg, NoteOn):
@@ -498,15 +501,15 @@ while True:
 
             if msm_reset.note(msg.note):
                 print(f"* Got {MIDI_TRIGGER_SEQ_RESET=}")
-                total_seconds = 0
+                prac_seconds = 0
                 play_seconds = 0
 
                 last_displayed_time = 0
                 session_length = 0
                 session_start_time = time.monotonic()
-                show_total_time(display, total_seconds, play_seconds)
+                show_total_time(display, prac_seconds, play_seconds)
 
-                try_write_session_data(in_dev_mode, display, total_seconds, play_seconds)
+                try_write_session_data(in_dev_mode, display, prac_seconds, play_seconds)
 
             elif msm_toggle_boot.note(msg.note):
                 print(f"* Got {MIDI_TRIGGER_SEQ_TOGGLE_BOOT=}")
@@ -526,9 +529,9 @@ while True:
 
 
             # elif msm_force_write.note(msg.note):
-            #     # don't update total_seconds yet, but write the new value
-            #     total_seconds_temp = total_seconds + session_length
-            #     print(f"* Force write: {total_seconds=}, {total_seconds_temp=}")
+            #     # don't update prac_seconds yet, but write the new value
+            #     total_seconds_temp = prac_seconds + session_length
+            #     print(f"* Force write: {prac_seconds=}, {total_seconds_temp=}")
             #     try_write_session_data(display, total_seconds_temp)
 
     # else:
@@ -547,46 +550,34 @@ while True:
             display.set_text_status("")
 
             if practice_not_play_mode:
-                total_seconds += session_length
+                prac_seconds += session_length
             else:
                 play_seconds += session_length
 
-            try_write_session_data(in_dev_mode, display, total_seconds, play_seconds)
+            try_write_session_data(in_dev_mode, display, prac_seconds, play_seconds)
 
             # For idle screen timeout
             idle_start_time = time.monotonic()
 
         else:
 
-            # # Update current session info
-            # session_length = time.monotonic() - session_start_time
-            # # print(f"  Session now {as_hms(session_length)}")
-
-            # new_total = total_seconds + session_length
-            # if last_displayed_time != int(new_total):
-            #     last_displayed_time = int(new_total)
-            #     # print(f" updating at {last_displayed_time}")
-            #     show_total_time(display, new_total)
-
             # Update current session info
             session_length = time.monotonic() - session_start_time
             # print(f"  Session now {as_hms(session_length)}")
 
-
-    # FIXME: V2
+            # FIXME: clunky
             if practice_not_play_mode:
-                new_prac = total_seconds + session_length
+                new_prac = prac_seconds + session_length
                 if last_displayed_time != int(new_prac):
                     last_displayed_time = int(new_prac)
                     # print(f" updating at {last_displayed_time}")
                     show_total_time(display, new_prac, play_seconds)
-
             else:
                 new_play = play_seconds + session_length
                 if last_displayed_time != int(new_play):
                     last_displayed_time = int(new_play)
                     # print(f" updating at {last_displayed_time}")
-                    show_total_time(display, total_seconds, new_play)
+                    show_total_time(display, prac_seconds, new_play)
 
     else:
         # print("  not in session...")
