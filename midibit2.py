@@ -6,32 +6,35 @@ a.k.a. MIDI-bit - A fitbit for your MIDI keyboard
 
 See https://github.com/RobCranfill/MIDIbit2
 
-Version 1 - Minimum Viable Product - Just keeps track of elapsed time spent practicing.
-Version 1TFT - for TFT display
+Version 2: Two accumulated times - "practice" and "play".
 
 For CircuitPython, on the device known as 
 "Adafruit Feather RP2040 with USB Type A Host" (whew!)
 (Adafruit Product ID: 5723)
 
-To force startup mode,
-    import microcontroller
-    microcontroller.nvm[0] = 0x12 # (18 decimal) for run mode
-    microcontroller.nvm[0] = 0x34 # (52) # for dev mode
+To force startup mode (see README file)
+    import microcontroller; microcontroller.nvm[0] = 0x12 # (18 decimal) for run mode
+    import microcontroller; microcontroller.nvm[0] = 0x34 # (52) # for dev mode
   then
     microcontroller.reset()
   
 
     TODO:
-     - WEIRD BEHAVIOR - LOW MEMORY???
 
-     - show something when scanning for MIDI
-     - if looking for MIDI, don't timeout and blank the screen? 
-            (or maybe not - maybe LED flashes OK)
-     - if looking for MIDI and a device gets plugged in, un-blank.
-     - erase "Found midi device" message at start.
-     - something wrong with "Found Roland Digital Piano" message at start - wraps wrong.
-     - show message when changing backlight level.
+    Things done, I think:
+     ! - show something when scanning for MIDI
+     ! - if looking for MIDI, don't timeout and blank the screen? 
+     ? - if looking for MIDI and a device gets plugged in, un-blank.
+     ! - erase "Found midi device" message at start.
+
+    Not done:
+     - show message when changing backlight level?
      - after switching dev mode, reboot?
+
+    Can't reproduce?
+     - something wrong with "Found Roland Digital Piano" message at start - wraps wrong.
+     - WEIRD BEHAVIOR - LOW MEMORY???
+        - working ok now? (the initial text painting is kinda slow but ok, kinda cool)
 
 """
 
@@ -39,6 +42,7 @@ To force startup mode,
 # stdlibs
 import board
 import digitalio
+import gc
 import microcontroller
 import supervisor
 import time
@@ -59,11 +63,11 @@ from adafruit_midi.pitch_bend import PitchBend
 import adafruit_usb_host_midi
 
 # Our libs
-import tft_144_display
+import tft_144_display as display_144
 import midi_state_machine
 import midibit_defines as DEF
 
-MIDIBIT_VERSION_STRING = "1.tft"
+MIDIBIT_VERSION_STRING = "2.a1"
 
 # TODO: how does this affect responsiveness? buffering? what-all??
 MIDI_TIMEOUT = .1
@@ -73,14 +77,26 @@ MIDI_TIMEOUT = .1
 SESSION_TIMEOUT = 15
 DISPLAY_IDLE_TIMEOUT = 60 # for display blanking
 
-SETTINGS_NAME = "pm_settings.text"
+SETTINGS_NAME = "midibit_settings.text"
 BG_FILE_NAME = "background.bmp"
 
 # Keyboard "attention" sequence MIDI notes: G G G Eb F F F D
 MIDI_TRIGGER_SEQ_PREFIX = (67, 67, 67, 63, 65, 65, 65, 62)
+
+# Post-trigger 'command' note
 MIDI_TRIGGER_SEQ_RESET = MIDI_TRIGGER_SEQ_PREFIX + (60,) # middle C
 MIDI_TRIGGER_SEQ_TOGGLE_BOOT = MIDI_TRIGGER_SEQ_PREFIX + (62,) # D above middle C
 MIDI_TRIGGER_SEQ_BACKLIGHT = MIDI_TRIGGER_SEQ_PREFIX + (64,) # E
+MIDI_TRIGGER_SEQ_TOGGLE_PRACTICE = MIDI_TRIGGER_SEQ_PREFIX + (65,) # F
+
+# Indicator colors when looking for MIDI
+NO_MIDI_BLINK_COLORS = [0x20_20_20, 0x80_80_80]
+ACTIVE_MODE_COLOR = 0x00_00_00
+INACTIVE_MODE_COLOR = 0x80_80_80
+
+
+BACKLIGHT_LEVELS = [10, 25, 50, 75, 100]
+backlight_level_index = 3
 
 
 neopixel_ = neopixel.NeoPixel(board.NEOPIXEL, 1)
@@ -88,6 +104,7 @@ def flash_led(seconds):
     neopixel_.fill(flash_color_)
     time.sleep(seconds)
     neopixel_.fill((0,0,0))
+
 
 def set_run_or_dev():
     '''Set the NeoPixel state and some other globals; return dev mode flag'''
@@ -117,39 +134,42 @@ def set_run_or_dev():
         print(f"\nRUN MODE")
     return is_dev_mode
 
-SPINNER = "|/-\\"
-spinner_index_ = 0
-def spin():
-    '''Return the next wiggling text characater.'''
-    global spinner_index_
-    spinner_index_ = (spinner_index_+1) % len(SPINNER)
-    return SPINNER[spinner_index_]
 
 def as_hms(seconds):
     return str(datetime.timedelta(0, int(seconds)))
 
-def show_total_time(disp, seconds):
-    disp.set_text_1(as_hms(seconds))
 
-def write_session_data(session_seconds):
-    '''Writes a string-ified version of the integer value.
+def show_total_time(disp, practice, play):
+    """Input params are integer seconds."""
+    disp.set_text_1(as_hms(practice))
+    disp.set_text_2(as_hms(play))
+
+
+def write_session_data(session_seconds, play_seconds):
+    '''Writes a string-ified version of the integer values.
     This will throw an exception if the filesystem isn't writable. Catch it higher up.'''
-    print(f"write_session_data: {int(session_seconds)}")
+    print(f"write_session_data: {session_seconds=}, {play_seconds=}")
     with open(SETTINGS_NAME, "w") as f:
         f.write(str(int(session_seconds)))
+        f.write(str(int(play_seconds)))
+
 
 def read_session_data():
-    """Return an integer of the number of seconds stored on SD card"""
-    result = "0"
+    """Return a tuple of practice & play times (# of seconds) stored on SD card"""
+
+    t1 = t2 = 0
     try:
         with open(SETTINGS_NAME, "r") as f:
-            result = f.read()
+            l1 = f.readline()
+            l2 = f.readline()
+        t1 = int(l1)
+        t2 = int(l2)
     except:
         print("No old session data? Continuing....")
-    if len(result) == 0:
-        result = "0"
-    # print(f"read_session_data: returning '{result}'")
-    return int(result)
+
+    # print(f"read_session_data: returning {t1=} {t2=}")
+    return (t1, t2)
+
 
 def find_midi_device(disp):
     """Does not return until it finds a (suitable?) MIDI device"""
@@ -164,10 +184,14 @@ def find_midi_device(disp):
 
     raw_midi = None
     attempt = 1
-    
+
     no_midi_idle_start_time = time.monotonic()
 
     while raw_midi is None:
+
+        # gc.collect()
+        # print(f"{gc.mem_free()} bytes free")
+
         all_devices = usb.core.find(find_all=True)
         
         #  no can do 
@@ -202,10 +226,13 @@ def find_midi_device(disp):
         # Looked at all devices, didn't find MIDI. Try again.
         if raw_midi is None:
 
-            print(f"No MIDI device found on try #{attempt}. Sleeping....")
-            display.set_midi_indicator(0x20_20_20)
+            msg = f"No MIDI device found on try #{attempt}. Sleeping...."
+            print(msg)
+            display.set_text_status(msg)
+
+            display.set_midi_indicator(NO_MIDI_BLINK_COLORS[0])
             time.sleep(.5)
-            display.set_midi_indicator(0x80_80_80)
+            display.set_midi_indicator(NO_MIDI_BLINK_COLORS[1])
             time.sleep(.5)
 
             # No-MIDI timeout; flash LED twice
@@ -213,7 +240,9 @@ def find_midi_device(disp):
                 # print("no-MIDI idle timeout!")
 
                 # TODO: check if already blanked
-                disp.blank_screen(True)
+                # FIXME: no blanking for no-midi case?
+                # disp.blank_screen(True)
+
                 flash_led(0.01)
                 time.sleep(0.1)
                 flash_led(0.01)
@@ -234,10 +263,10 @@ def find_midi_device(disp):
     return midi_device
 
 
-def try_write_session_data(dev_mode, disp, seconds):
+def try_write_session_data(dev_mode, disp, practice_seconds, play_seconds):
     '''Write the given elapsed time to the data file. Display errors as needed.'''
     try:
-        write_session_data(seconds)
+        write_session_data(practice_seconds, play_seconds)
         display_message_for_a_bit(disp, "DATA SAVED")
 
     except Exception as e:
@@ -259,23 +288,42 @@ def toggle_boot_mode(disp):
     print(f"Setting {microcontroller.nvm[0]=} -> {nvm_dev_mode=}")
     display_message_for_a_bit(disp, f"Dev: {nvm_dev_mode}")
 
+
 def display_message_for_a_bit(disp, text, delay=2):
     disp.set_text_status(str(text))
     time.sleep(delay)
     disp.set_text_status("")
 
+
 def show_splash(disp):
-    disp._label_1.text = "MidiBit"
+    disp.set_label_1("MidiBit")
     disp.set_text_1(MIDIBIT_VERSION_STRING)
     disp.set_text_status("MidiBit starting...")
     time.sleep(2)
 
+
+def set_display_practice_active(disp, is_practice):
+    """Toggle the prac/play display mode, coloring the fields appropriately."""
+
+    color_1 = ACTIVE_MODE_COLOR   if is_practice else INACTIVE_MODE_COLOR
+    color_2 = INACTIVE_MODE_COLOR if is_practice else ACTIVE_MODE_COLOR
+
+    disp.set_label_1_color(color_1)
+    disp.set_text_1_color(color_1)
+    disp.set_label_2_color(color_2)
+    disp.set_text_2_color(color_2)
+
+
+def main():
+    pass
+
+
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
-print("TFT version")
+print("Version 2a")
 
 # wait for USB ready - needed??
-time.sleep(2) 
+# time.sleep(2)
 
 # turn off auto-reload, cuz it's a pain
 supervisor.runtime.autoreload = False
@@ -284,11 +332,11 @@ print(f"{supervisor.runtime.autoreload=}")
 
 # The display.
 #
-display = tft_144_display.TFT144Display(board.D5, board.D6, board.D9, board.D10, True, BG_FILE_NAME, 90)
-backlight_levels = [5, 10, 25, 50, 75, 100]
-backlight_level_index = 3
-display.set_bl_percent(backlight_levels[backlight_level_index])
-display.set_midi_indicator(0x80_80_80)
+display = display_144.TFT144Display(board.D5, board.D6, board.D9, board.D10, 
+                                    True, BG_FILE_NAME, 90)
+
+display.set_bl_percent(BACKLIGHT_LEVELS[backlight_level_index])
+display.set_midi_indicator(NO_MIDI_BLINK_COLORS[0])
 
 
 # except Exception as e:
@@ -298,26 +346,43 @@ display.set_midi_indicator(0x80_80_80)
 #         pass
 
 show_splash(display)
-display._label_1.text = "Practice"
+display.set_label_1("Practice")
+display.set_label_2("Play")
+display.set_text_2("??") # for now
+
+
+# V2: the big diff!
+# Determines whether we accumulate to total_seconds (TODO: misnomer; rename) or play_seconds
+practice_not_play_mode = True
+
+# NOTES FOR UPDATE
+#  total_seconds: total practice time, accumulated to when in right mode, and saved.
+#  play_seconds: new 'play' mode time, ditto.
+
+
+# Set the colors of the labels accordingly
+set_display_practice_active(display, practice_not_play_mode)
+
 
 # Are we running in dev mode? Set some stuff.
 in_dev_mode = set_run_or_dev()
 
 # Load previous total time from text file.
-total_seconds = read_session_data()
-print(f"read_session_data: {total_seconds=}")
+total_seconds, play_seconds = read_session_data()
+print(f"read_session_data: {total_seconds=}, {play_seconds=}")
 
+show_total_time(display, total_seconds, play_seconds)
 
 last_event_time = time.monotonic()
 in_session = False
 session_start_time = 0
+session_length = 0
 
-show_total_time(display, total_seconds)
 
 # last_displayed_time is the (integer) time we last displayed; only update if changed.
 # (The time itself is a float that's always changing.)
 # 
-last_displayed_time = int(total_seconds)
+last_displayed_time = int(total_seconds if practice_not_play_mode else play_seconds)
 
 idle_start_time = time.monotonic()
 idle_led_blip_time = idle_start_time
@@ -331,6 +396,9 @@ msm_toggle_boot = midi_state_machine.midi_state_machine(MIDI_TRIGGER_SEQ_TOGGLE_
 # Advance the backlight
 msm_backlight = midi_state_machine.midi_state_machine(MIDI_TRIGGER_SEQ_BACKLIGHT)
 
+# Toggle practice/play mode
+msm_toggle_practice = midi_state_machine.midi_state_machine(MIDI_TRIGGER_SEQ_TOGGLE_PRACTICE)
+
 
 # Main event loop. Does not exit.
 #
@@ -340,6 +408,10 @@ display_is_blanked = False
 
 while True:
 
+    # ok? seems to be.
+    # gc.collect()
+    # print(f"{gc.mem_free()} bytes free")
+
     # This doesn't return until we have a MIDI device.
     # TODO: Is it always a *usable* device? No. Something funny here.
     #
@@ -347,6 +419,8 @@ while True:
 
         print("MEL loking for MIDI....")
 
+        # Note (haha) that find_midi_device doesn't return until it finds something.
+        #
         # TODO: check for None?
         midi_device = find_midi_device(display)
         print("  back from find_midi_device")
@@ -366,9 +440,12 @@ while True:
 
         # Assume this is a MIDI disconnect?
         if in_session:
+
+            # FIXME: V2
             total_seconds_temp = total_seconds + session_length
             print(f"* Force write: {total_seconds=}, {session_length=}")
-            try_write_session_data(in_dev_mode, display, total_seconds+session_length)
+
+            try_write_session_data(in_dev_mode, display, total_seconds+session_length, 666)
 
             # TODO: end the session?
 
@@ -400,6 +477,7 @@ while True:
             display.blank_screen(False)
             display_is_blanked = False
 
+        # FIXME
         display.set_midi_indicator(0x00_FF_00 if msg_number % 2 == 0 else 0xFF_00_00)
 
         if not in_session:
@@ -408,7 +486,7 @@ while True:
             in_session = True
 
             # This would only be missing for <1 sec, but hey.
-            show_total_time(display, total_seconds)
+            show_total_time(display, total_seconds, play_seconds)
 
         # Look for command sequences.
         if isinstance(msg, NoteOn):
@@ -421,24 +499,33 @@ while True:
             if msm_reset.note(msg.note):
                 print(f"* Got {MIDI_TRIGGER_SEQ_RESET=}")
                 total_seconds = 0
+                play_seconds = 0
+
                 last_displayed_time = 0
                 session_length = 0
                 session_start_time = time.monotonic()
-                show_total_time(display, total_seconds)
+                show_total_time(display, total_seconds, play_seconds)
 
-                try_write_session_data(in_dev_mode, display, total_seconds)
+                try_write_session_data(in_dev_mode, display, total_seconds, play_seconds)
 
-            if msm_toggle_boot.note(msg.note):
+            elif msm_toggle_boot.note(msg.note):
                 print(f"* Got {MIDI_TRIGGER_SEQ_TOGGLE_BOOT=}")
                 toggle_boot_mode(display)
 
-            if msm_backlight.note(msg.note):
-                backlight_level_index += 1
-                if backlight_level_index >= len(backlight_levels):
-                    backlight_level_index = 0
-                display.set_bl_percent(backlight_levels[backlight_level_index])
+            elif msm_backlight.note(msg.note):
+                backlight_level_index = (backlight_level_index + 1) % len(BACKLIGHT_LEVELS)
+                display.set_bl_percent(BACKLIGHT_LEVELS[backlight_level_index])
+                display_message_for_a_bit(display, f"Backlight: {BACKLIGHT_LEVELS[backlight_level_index]}%")
 
-            # if msm_force_write.note(msg.note):
+            elif msm_toggle_practice.note(msg.note):
+
+                practice_not_play_mode = not practice_not_play_mode
+                display_message_for_a_bit(display, f"Practice: {practice_not_play_mode}")
+
+                set_display_practice_active(display, practice_not_play_mode)
+
+
+            # elif msm_force_write.note(msg.note):
             #     # don't update total_seconds yet, but write the new value
             #     total_seconds_temp = total_seconds + session_length
             #     print(f"* Force write: {total_seconds=}, {total_seconds_temp=}")
@@ -459,23 +546,47 @@ while True:
             in_session = False
             display.set_text_status("")
 
-            total_seconds += session_length
+            if practice_not_play_mode:
+                total_seconds += session_length
+            else:
+                play_seconds += session_length
 
-            try_write_session_data(in_dev_mode, display, total_seconds)
+            try_write_session_data(in_dev_mode, display, total_seconds, play_seconds)
 
             # For idle screen timeout
             idle_start_time = time.monotonic()
 
         else:
+
+            # # Update current session info
+            # session_length = time.monotonic() - session_start_time
+            # # print(f"  Session now {as_hms(session_length)}")
+
+            # new_total = total_seconds + session_length
+            # if last_displayed_time != int(new_total):
+            #     last_displayed_time = int(new_total)
+            #     # print(f" updating at {last_displayed_time}")
+            #     show_total_time(display, new_total)
+
             # Update current session info
             session_length = time.monotonic() - session_start_time
             # print(f"  Session now {as_hms(session_length)}")
 
-            new_total = total_seconds + session_length
-            if last_displayed_time != int(new_total):
-                last_displayed_time = int(new_total)
-                # print(f" updating at {last_displayed_time}")
-                show_total_time(display, new_total)
+
+    # FIXME: V2
+            if practice_not_play_mode:
+                new_prac = total_seconds + session_length
+                if last_displayed_time != int(new_prac):
+                    last_displayed_time = int(new_prac)
+                    # print(f" updating at {last_displayed_time}")
+                    show_total_time(display, new_prac, play_seconds)
+
+            else:
+                new_play = play_seconds + session_length
+                if last_displayed_time != int(new_play):
+                    last_displayed_time = int(new_play)
+                    # print(f" updating at {last_displayed_time}")
+                    show_total_time(display, total_seconds, new_play)
 
     else:
         # print("  not in session...")

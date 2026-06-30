@@ -1,7 +1,7 @@
 
 # This is the real 'main' for MIDI-bit. All else is testing.
 #
-import a_midibit2
+import midibit2
 
 # import test.tft_test_2a
 
@@ -32,4 +32,6 @@ import a_midibit2
 
 # import test.simple_midi
 
+
+print("FELL THRU CODE.PY!")
 

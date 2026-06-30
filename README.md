@@ -10,7 +10,7 @@ Something that plugs into the USB port of a MIDI keyboard, with auto start/stop,
 
 Minimum Viable Product: Accumulate total practice time until reset.
 Version 2: Accumulate two metrics: practice time and "play" time.
-Stretch goals: Internet connectivity, with an app to slice and dice the data all pretty-like.
+Stretch goals: Internet connectivity, with an app to slice and dice the data all pretty-like. I doubt I'll ever do this.
 
 
 # Operation
@@ -23,9 +23,11 @@ Stretch goals: Internet connectivity, with an app to slice and dice the data all
       * Middle C: Zero out session data, both onscreen and written it to storage.
       * D above middle C: Toggle next RUN/DEV mode (see below)
       * E above middle C: Increment screen brightness; rolls thru a few useful values.
+      * F above middle C: Toggle practice/play time.
     * Any other key after the attention sequence is ignored and normal operation resumes.
 
-* If no MIDI is connected, or no MIDI events are detected in the timeout period (60 seconds in RUN mode, 10 seconds in DEV mode (see below)) the screen will be blanked and the red LED will blink once per second (3 blinks per second if no MIDI, just for now).
+* If no MIDI events are detected in the timeout period (60 seconds in RUN mode, 10 seconds in DEV mode (see below)) the screen will be blanked and the red LED will blink once per second (3 blinks per second if no MIDI, just for now).
+* The screen will not be blanked if no MIDI is detected.
 
 * RUN/DEV mode
   * For now, there are these two modes. Useful for development, but ultimately not needed.
@@ -43,6 +45,8 @@ Stretch goals: Internet connectivity, with an app to slice and dice the data all
 # Hardware Requirements for this project
 * Adafruit "RP2040 with USB A Host" (Adafruit produt ID 5723)
 * Adafruit 1.44" 128x128 TFT (product ID 2088)
+* (optional) Adafruit EYESPI connector and cable (you can hardwire the display if you want)
+*
 * Power supply
   * Needs to be plugged in, either to wall or USB power from keyboard.
   *  TODO: Power from Roland USB A port seems problematic. Why?
@@ -62,4 +66,5 @@ Stretch goals: Internet connectivity, with an app to slice and dice the data all
 
 
 # Testing
-* It would be nice to be able to test things without an actual MIDI keyboard attached. Hmmm.
+* It would be nice to be able to test things without an actual MIDI keyboard attached. How?
+

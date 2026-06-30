@@ -1,6 +1,6 @@
 """
     New display for Practice Monitor
-    Version 1-tft: just one practice time shown.
+    Version 2: Two practice times shown.
 
     For 1.44" 128x128 TFT - https://learn.adafruit.com/adafruit-1-44-color-tft-with-micro-sd-socket
     https://www.adafruit.com/product/2088
@@ -36,9 +36,9 @@ from adafruit_st7735r import ST7735R
 from fourwire import FourWire
 import terminalio
 
-
-BACKGROUND_COLOR = 0xFF_FF_D0
-MIDI_COLOR_A = 0xFF_00_00
+# TODO: Input these at constructor? setters?
+BACKGROUND_COLOR = 0xFF_FF_D0   # no longer used, since we use a .bmp for background?
+MIDI_COLOR_A = 0xFF_00_00   # For MIDI activity indicator
 MIDI_COLOR_B = 0x00_FF_00
 
 BLACK = 0x00_00_00
@@ -47,7 +47,27 @@ HEIGHT = 128
 WIDTH  = 128
 
 class TFT144Display():
-    """Display based on Adafruit 1.44" TFT"""
+    """Display based on Adafruit 1.44" TFT.
+    
+    Will expose 2 updateable fields, one two-line status area, and one blinky MIDI indicator.
+    
+        +----------------------------------+
+        |  _label_1                        |
+        |  _text_1                         |
+        |                                  |
+        |  _label_2                        |
+        |  _text_2                         |
+        |                                  |
+        |  _status_1                       |
+        |  _status_2       _midi_indicator |
+        +----------------------------------+
+
+    with methods
+        .set_label_1(t) .set_label_1_color(c)
+        .set_text_1(t)  .set_text_1_color(c)
+        ...
+
+    """
 
     def __init__(self, pin_cs, pin_dc, pin_reset, pin_backlight, use_pwm, bg_file_path, rotation):
         """
@@ -76,7 +96,7 @@ class TFT144Display():
 
 
         # Load a background image to the group.
-        if bg_file_path is not None:    
+        if bg_file_path is not None:
             print(f"Loading image from {bg_file_path}")
             bitmap, palette = adafruit_imageload.load(  bg_file_path,
                                                         bitmap=displayio.Bitmap,
@@ -89,7 +109,7 @@ class TFT144Display():
             print("No background?")
             bitmap = displayio.Bitmap(WIDTH, HEIGHT, 4)
             palette = displayio.Palette(4)
-            palette[0] = BACKGROUND_COLOR
+            palette[0] = BACKGROUND_COLOR # don't know if this is used
             palette[1] = BLACK
             palette[2] = MIDI_COLOR_A
             palette[3] = MIDI_COLOR_B
@@ -104,51 +124,82 @@ class TFT144Display():
         group.append(bg_sprite)
 
 
-        print("Loading font....")
+        print("Loading fonts....")
         little_font = terminalio.FONT
         big_font = bitmap_font.load_font("fonts/cmuntb22.bdf")
-        print("Loaded")
+        print("Fonts loaded.")
 
-
+        # Create the text labels; hang onto them as instance vars
         tx =  0
-        ty = 30
+        ty = 10
+        big_inc = 26
 
         lab = label.Label(big_font, color=BLACK, x=tx, y=ty)
         group.append(lab)
         self._label_1 = lab
 
-        ty += 30
-        text_area = label.Label(big_font, scale=1, color=BLACK, x=tx, y=ty)
-        group.append(text_area)
-        self._text_area_1 = text_area
+        ty += big_inc
+        text = label.Label(big_font, scale=1, color=BLACK, x=tx, y=ty)
+        group.append(text)
+        self._text_1 = text
 
-        # Two little ones at the bottom for status.
+        ty += big_inc
+        lab = label.Label(big_font, color=BLACK, x=tx, y=ty)
+        group.append(lab)
+        self._label_2 = lab
+
+        ty += big_inc
+        text = label.Label(big_font, scale=1, color=BLACK, x=tx, y=ty)
+        group.append(text)
+        self._text_2 = text
+
+        # Two little labels at the bottom for status.
         tx = 4
-        ty += 30
-        text_area = label.Label(little_font, color=BLACK, x=tx, y=ty)
-        group.append(text_area)
-        self._text_area_3 = text_area
+        ty = 128 - 18
+        text = label.Label(little_font, color=BLACK, x=tx, y=ty)
+        group.append(text)
+        self._status_1 = text
 
-        ty += 12
+        ty += 10
         text_area = label.Label(little_font, color=BLACK, x=tx, y=ty)
         group.append(text_area)
-        self._text_area_4 = text_area
+        self._status_2 = text_area
     
-        self._indicator = Rect(108, 108, 18, 18, fill=0xFF0000)   # red, 18x18 at (108,108)
-        group.append(self._indicator)                              # drawn on top
+
+        # The MIDI activity indicator
+        self._indicator = Rect(114, 114, 12, 12, fill=MIDI_COLOR_A)
+        group.append(self._indicator)
         display.root_group = group
 
         print(f"{__name__} OK!")
 
-    def set_midi_indicator(self, color):
-        self._indicator.fill = color
+    # FIXME: could have just exposed the labels themselves and then set .text and .color on them. ?
+    # whatev
+
+    def set_label_1(self, text):
+        self._label_1.text = text
+
+    def set_label_1_color(self, color):
+        self._label_1.color = color
 
     def set_text_1(self, text):
-        # print(f"{__name__}: set_text_1 '{text}'")
-        self._text_area_1.text = text
+        self._text_1.text = text
 
     def set_text_1_color(self, color):
-        self._text_area_1.color = color
+        self._text_1.color = color
+
+    def set_label_2(self, text):
+        self._label_2.text = text
+
+    def set_label_2_color(self, color):
+        self._label_2.color = color
+
+    def set_text_2(self, text):
+        self._text_2.text = text
+
+    def set_text_2_color(self, color):
+        self._text_2.color = color
+
 
     def set_text_status(self, text):
         """Displays in area 3, with overflow to area 4 if needed. Max 20 chars each."""
@@ -158,12 +209,17 @@ class TFT144Display():
         if len(t1) > MAX_CHARS:
             t1 = text[0:MAX_CHARS]
             t2 = text[MAX_CHARS:MAX_CHARS*2]
-        self._text_area_3.text = t1
-        self._text_area_4.text = t2
+    
+        t1 = t1.strip()
+        t2 = t2.strip()
 
-    # label can only change color
-    def set_label_1_color(self, color):
-        self._label_1.color = color
+        self._status_1.text = t1
+        self._status_2.text = t2
+
+
+    def set_midi_indicator(self, color):
+        self._indicator.fill = color
+
 
 
     # def set_display_practice_mode(self, practice_mode):
