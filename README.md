@@ -3,14 +3,14 @@ MIDI Practice Monitor
 &copy;2026 Rob Cranfill
 
 # Purpose
-Elevator Pitch: A Fitbit for MIDI keyboards. Tells you how much you have practiced via various metrics.
+Elevator Pitch: Like a Fitbit for MIDI keyboards. Tells you how much you have practiced via various metrics.
 
 # Design Goals
 Something that plugs into the USB port of a MIDI keyboard, with auto start/stop, so you can forget about it.
 
 Minimum Viable Product: Accumulate total practice time until reset.
 Version 2: Accumulate two metrics: practice time and "play" time.
-Stretch goals: Internet connectivity, with an app to slice and dice the data all pretty-like. I doubt I'll ever do this.
+Stretch goals (which will probably never happen): Internet connectivity, with an app to slice and dice the data all pretty-like. I doubt I'll ever do this.
 
 
 # Operation
@@ -20,7 +20,7 @@ Stretch goals: Internet connectivity, with an app to slice and dice the data all
   * In order to send commands to the unit from the MIDI keyboard, instead of using MIDI CC or PC commands, which some keyboards may not accomodate, you can play the first eight notes of Beethoven's 5th, starting on G above middle C, to get the unit's attentions.
     * That's G G G Eb F F F D; the tempo doesn't matter.
     * After the attention sequence,
-      * Middle C: Zero out session data, both onscreen and written it to storage.
+      * Middle C: Zero out session data, both onscreen and written to storage.
       * D above middle C: Toggle next RUN/DEV mode (see below)
       * E above middle C: Increment screen brightness; rolls thru a few useful values.
       * F above middle C: Toggle practice/play time.
@@ -30,7 +30,7 @@ Stretch goals: Internet connectivity, with an app to slice and dice the data all
 * The screen will not be blanked if no MIDI is detected.
 
 * RUN/DEV mode
-  * For now, there are these two modes. Useful for development, but ultimately not needed.
+  * For now, there are these two modes. Necessary for development, but ultimately not needed.
   * In RUN MODE, usually the default, the CircuitPython code can write to the flash, and can update the accumulated practice time.
   * In DEV MODE, we can edit the files on the flash drive via the USB C connector, and update the code - but the running code cannot update the stored practice time. This is OK since that would be just garbage, 'testing' numbers anyway.
   * For convenience while developing, we can set the unit to always come up in DEV MODE.
@@ -45,8 +45,7 @@ Stretch goals: Internet connectivity, with an app to slice and dice the data all
 # Hardware Requirements for this project
 * Adafruit "RP2040 with USB A Host" (Adafruit produt ID 5723)
 * Adafruit 1.44" 128x128 TFT (product ID 2088)
-* (optional) Adafruit EYESPI connector and cable (you can hardwire the display if you want)
-*
+* (optional) Adafruit EYESPI connector and cable (or you can hardwire the display if you want)
 * Power supply
   * Needs to be plugged in, either to wall or USB power from keyboard.
   *  TODO: Power from Roland USB A port seems problematic. Why?
@@ -57,7 +56,7 @@ Stretch goals: Internet connectivity, with an app to slice and dice the data all
   * 10.2.1 used currently.
 * Adafruit support libraries
   * See requirements.txt for complete list and latest versions used.
-* Font: 22-point bitmap of FreeType-CMU Typewriter Text-Bold-R-Normal, rendered from OpenType font "cmuntb.ttf", converted by Andrey V. Panov from TeX fonts. (Included)
+* Font: 22-point bitmap. of FreeType-CMU Typewriter Text-Bold-R-Normal, rendered from OpenType font "cmuntb.ttf", converted by Andrey V. Panov from TeX fonts. (Included)
 
 
 # Open Issues (also see GitHub)

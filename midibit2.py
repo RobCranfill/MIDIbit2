@@ -137,7 +137,10 @@ def set_run_or_dev():
 
 
 def as_hms(seconds):
-    return str(datetime.timedelta(0, int(seconds)))
+    s = str(datetime.timedelta(0, int(seconds)))
+    if len(s) == 7:
+        s = " " + s
+    return s
 
 
 def show_total_time(disp, practice, play):
