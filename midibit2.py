@@ -45,6 +45,7 @@ import board
 import digitalio
 import gc
 import microcontroller
+import os
 import supervisor
 import time
 import usb.core
@@ -68,7 +69,7 @@ import tft_144_display as display_144
 import midi_state_machine
 import midibit_defines as DEF
 
-MIDIBIT_VERSION_STRING = "2.a1"
+MIDIBIT_VERSION_STRING = "2.0.1"
 
 # TODO: how does this affect responsiveness? buffering? what-all??
 MIDI_TIMEOUT = .1
@@ -79,7 +80,8 @@ SESSION_TIMEOUT = 15
 DISPLAY_IDLE_TIMEOUT = 60 # for display blanking
 
 SETTINGS_NAME = "midibit_settings.text"
-BG_FILE_NAME = "background.bmp"
+BG_FILE_NAME = "background.bmp" # default, to start with. FIXME
+BG_DIR = "/bmps/"
 
 # Keyboard "attention" sequence MIDI notes: G G G Eb F F F D
 MIDI_TRIGGER_SEQ_PREFIX = (67, 67, 67, 63, 65, 65, 65, 62)
@@ -89,15 +91,12 @@ MIDI_TRIGGER_SEQ_RESET = MIDI_TRIGGER_SEQ_PREFIX + (60,) # middle C
 MIDI_TRIGGER_SEQ_TOGGLE_BOOT = MIDI_TRIGGER_SEQ_PREFIX + (62,) # D above middle C
 MIDI_TRIGGER_SEQ_BACKLIGHT = MIDI_TRIGGER_SEQ_PREFIX + (64,) # E
 MIDI_TRIGGER_SEQ_TOGGLE_PRACTICE = MIDI_TRIGGER_SEQ_PREFIX + (65,) # F
+MIDI_TRIGGER_SEQ_NEXT_BACKGROUND = MIDI_TRIGGER_SEQ_PREFIX + (67,) # G
 
 # Indicator colors when looking for MIDI
 NO_MIDI_BLINK_COLORS = [0x20_20_20, 0x80_80_80]
 ACTIVE_MODE_COLOR = 0x00_00_00
 INACTIVE_MODE_COLOR = 0x80_80_80
-
-
-BACKLIGHT_LEVELS = [10, 25, 50, 75, 100]
-backlight_level_index = 3
 
 
 neopixel_ = neopixel.NeoPixel(board.NEOPIXEL, 1)
@@ -262,7 +261,8 @@ def find_midi_device(disp):
     print(f"  returning {midi_device=}")
 
     disp.set_text_status(f"Found\n{device.product}")
-    # time.sleep(2)
+    time.sleep(2)
+    disp.set_text_status("")
 
     return midi_device
 
@@ -300,10 +300,11 @@ def display_message_for_a_bit(disp, text, delay=2):
 
 
 def show_splash(disp):
+    """Show startup screen"""
     disp.set_label_1("MidiBit")
     disp.set_text_1(MIDIBIT_VERSION_STRING)
     disp.set_text_status("MidiBit starting...")
-    time.sleep(2)
+    time.sleep(4)
 
 
 def set_display_practice_active(disp, is_practice):
@@ -333,26 +334,27 @@ print("Version 2a")
 supervisor.runtime.autoreload = False
 print(f"{supervisor.runtime.autoreload=}")
 
-
 # The display.
 #
 display = display_144.TFT144Display(board.D5, board.D6, board.D9, board.D10, 
                                     True, BG_FILE_NAME, 90)
 
-display.set_bl_percent(BACKLIGHT_LEVELS[backlight_level_index])
-display.set_midi_indicator(NO_MIDI_BLINK_COLORS[0])
-
-
-# except Exception as e:
-#     print("Can't init display?? Stopping")
-#     print(f"{e}")
-#     while True:
-#         pass
-
 show_splash(display)
+
 display.set_label_1("Practice")
 display.set_label_2("Play")
 display.set_text_2("??") # for now
+
+# for the bitmap background
+BG_FILES = os.listdir(BG_DIR)
+BG_FILES.sort()
+print(f"{BG_FILES=}")
+bg_file_index = 0
+
+BACKLIGHT_LEVELS = [10, 25, 50, 75, 100]
+backlight_level_index = 3
+display.set_bl_percent(BACKLIGHT_LEVELS[backlight_level_index])
+display.set_midi_indicator(NO_MIDI_BLINK_COLORS[0])
 
 
 # V2: the big diff!
@@ -402,6 +404,9 @@ msm_backlight = midi_state_machine.midi_state_machine(MIDI_TRIGGER_SEQ_BACKLIGHT
 
 # Toggle practice/play mode
 msm_toggle_practice = midi_state_machine.midi_state_machine(MIDI_TRIGGER_SEQ_TOGGLE_PRACTICE)
+
+# Display next background.
+msm_next_background = midi_state_machine.midi_state_machine(MIDI_TRIGGER_SEQ_NEXT_BACKGROUND)
 
 
 # Main event loop. Does not exit.
@@ -519,17 +524,25 @@ while True:
                 toggle_boot_mode(display)
 
             elif msm_backlight.note(msg.note):
+                print(f"* Got {MIDI_TRIGGER_SEQ_BACKLIGHT=}")
                 backlight_level_index = (backlight_level_index + 1) % len(BACKLIGHT_LEVELS)
                 display.set_bl_percent(BACKLIGHT_LEVELS[backlight_level_index])
                 display_message_for_a_bit(display, f"Backlight: {BACKLIGHT_LEVELS[backlight_level_index]}%")
 
             elif msm_toggle_practice.note(msg.note):
+                print(f"* Got {MIDI_TRIGGER_SEQ_TOGGLE_PRACTICE=}")
 
                 practice_not_play_mode = not practice_not_play_mode
                 display_message_for_a_bit(display, f"Practice: {practice_not_play_mode}")
 
                 set_display_practice_active(display, practice_not_play_mode)
 
+
+            elif msm_next_background.note(msg.note):
+                print(f"* Got {MIDI_TRIGGER_SEQ_NEXT_BACKGROUND=}")
+
+                bg_file_index = (bg_file_index + 1) % len(BG_FILES)
+                display.set_background(BG_DIR + BG_FILES[bg_file_index])
 
             # elif msm_force_write.note(msg.note):
             #     # don't update prac_seconds yet, but write the new value

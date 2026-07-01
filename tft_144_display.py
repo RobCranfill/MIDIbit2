@@ -26,6 +26,7 @@ import time
 import board
 import digitalio
 import displayio
+import gc
 import pwmio
 
 import adafruit_imageload
@@ -96,33 +97,35 @@ class TFT144Display():
 
 
         # Load a background image to the group.
-        if bg_file_path is not None:
-            print(f"Loading image from {bg_file_path}")
-            bitmap, palette = adafruit_imageload.load(  bg_file_path,
-                                                        bitmap=displayio.Bitmap,
-                                                        palette=displayio.Palette)
-            # print(f"Loaded pallette size {palette.__len__()}")
+        # if bg_file_path is not None:
 
-            # TODO: ADD TWO COLORS FOR MIDI INDICATOR
+        print(f"Loading image from {bg_file_path}")
+        bitmap, palette = adafruit_imageload.load(  bg_file_path,
+                                                    bitmap=displayio.Bitmap,
+                                                    palette=displayio.Palette)
+        # print(f"Loaded pallette size {palette.__len__()}")
 
-        else:
-            print("No background?")
-            bitmap = displayio.Bitmap(WIDTH, HEIGHT, 4)
-            palette = displayio.Palette(4)
-            palette[0] = BACKGROUND_COLOR # don't know if this is used
-            palette[1] = BLACK
-            palette[2] = MIDI_COLOR_A
-            palette[3] = MIDI_COLOR_B
+        # else:
+        #     print("No background?")
+        #     bitmap = displayio.Bitmap(WIDTH, HEIGHT, 4)
+        #     palette = displayio.Palette(4)
+        #     palette[0] = BACKGROUND_COLOR # don't know if this is used
+        #     palette[1] = BLACK
+        #     palette[2] = MIDI_COLOR_A
+        #     palette[3] = MIDI_COLOR_B
 
+        # So we can dispose it when switching
         self._bitmap = bitmap
+
         self._midi_indicator_index = 2
 
-        # this bit me:
         group = displayio.Group()
         display.root_group = group
         bg_sprite = displayio.TileGrid(bitmap, pixel_shader=palette, x=0, y=0)
         group.append(bg_sprite)
 
+        # Hang onto this so we can change the background image.
+        self._group = group
 
         print("Loading fonts....")
         little_font = terminalio.FONT
@@ -175,6 +178,22 @@ class TFT144Display():
 
     # FIXME: could have just exposed the labels themselves and then set .text and .color on them. ?
     # whatev
+
+    def set_background(self, bg_file_path):
+
+        gc.collect()
+        print(f"1 {gc.mem_free()=}")
+        self._bitmap = None
+
+        print(f"Loading new bitmap {bg_file_path}...")
+        bitmap, palette = adafruit_imageload.load(  bg_file_path,
+                                                    bitmap=displayio.Bitmap,
+                                                    palette=displayio.Palette)
+        gc.collect()
+        print(f"2 {gc.mem_free()=}")
+        self._group[0] = displayio.TileGrid(bitmap, pixel_shader=palette, x=0, y=0)
+        gc.collect()
+        print(f"3 {gc.mem_free()=}")
 
     def set_label_1(self, text):
         self._label_1.text = text
