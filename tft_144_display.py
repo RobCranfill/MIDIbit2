@@ -1,18 +1,18 @@
 """
     New display for Practice Monitor
-    Version 2: Two practice times shown.
+    Version 2: Two practice times and a message area.
 
     For 1.44" 128x128 TFT - https://learn.adafruit.com/adafruit-1-44-color-tft-with-micro-sd-socket
     https://www.adafruit.com/product/2088
 
     Feather     EYESPI
     -------     ------
-      Hardwired:
+    Hardwired
     SCK         SCK
     MO          MOSI
     MI          MISO
 
-      Passed in as params:
+    Passed in as params
     D5          TCS
     D6          DC
     D9          RST
@@ -37,7 +37,7 @@ from adafruit_st7735r import ST7735R
 from fourwire import FourWire
 import terminalio
 
-# TODO: Input these at constructor? setters?
+# TODO: Input these at constructor? setters? meh.
 BACKGROUND_COLOR = 0xFF_FF_D0   # no longer used, since we use a .bmp for background?
 MIDI_COLOR_A = 0xFF_00_00   # For MIDI activity indicator
 MIDI_COLOR_B = 0x00_FF_00
@@ -46,6 +46,8 @@ BLACK = 0x00_00_00
 
 HEIGHT = 128
 WIDTH  = 128
+
+MAX_STATUS_CHARS = 20
 
 class TFT144Display():
     """Display based on Adafruit 1.44" TFT.
@@ -114,7 +116,7 @@ class TFT144Display():
         #     palette[2] = MIDI_COLOR_A
         #     palette[3] = MIDI_COLOR_B
 
-        # So we can dispose it when switching
+        # So we can dispose it when switching?
         self._bitmap = bitmap
 
         self._midi_indicator_index = 2
@@ -221,13 +223,17 @@ class TFT144Display():
 
 
     def set_text_status(self, text):
-        """Displays in area 3, with overflow to area 4 if needed. Max 20 chars each."""
-        MAX_CHARS = 20
-        t1 = text
+        """Displays in status fields: text 3 with overflow to area 4 if needed. 
+        Max MAX_STATUS_CHARS chars each."""
+
+        t1 = text.strip()
         t2 = ""
-        if len(t1) > MAX_CHARS:
-            t1 = text[0:MAX_CHARS]
-            t2 = text[MAX_CHARS:MAX_CHARS*2]
+        if len(t1) > MAX_STATUS_CHARS:
+            t1 = text[:MAX_STATUS_CHARS]
+            t2 = text[MAX_STATUS_CHARS:]
+
+        if len(t2) > MAX_STATUS_CHARS:
+            t2 = t2[0:MAX_STATUS_CHARS]
     
         t1 = t1.strip()
         t2 = t2.strip()
@@ -239,20 +245,6 @@ class TFT144Display():
     def set_midi_indicator(self, color):
         self._indicator.fill = color
 
-
-
-    # def set_display_practice_mode(self, practice_mode):
-    #     """Toggle the display mode - setting active/inactive color."""
-    #     if practice_mode:
-    #         self.set_label_1_color(TEXT_COLOR_ACTIVE)
-    #         self.set_text_1_color(TEXT_COLOR_ACTIVE)
-    #         self.set_label_2_color(TEXT_COLOR_INACTIVE)
-    #         self.set_text_2_color(TEXT_COLOR_INACTIVE)
-    #     else:
-    #         self.set_label_1_color(TEXT_COLOR_INACTIVE)
-    #         self.set_text_1_color(TEXT_COLOR_INACTIVE)
-    #         self.set_label_2_color(TEXT_COLOR_ACTIVE)
-    #         self.set_text_2_color(TEXT_COLOR_ACTIVE)
 
     def blank_screen(self, blank):
         """If 'blank' is true, blank the screen."""
@@ -278,8 +270,7 @@ class TFT144Display():
 
 
 def test():
-    """"Example code. 
-    TODO: FIXME
+    """Example code. 
     """
 
     print("Creating TFT144Display for test...")

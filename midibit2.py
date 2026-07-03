@@ -44,6 +44,7 @@ To force startup mode (see README file)
 import board
 import digitalio
 import gc
+import json
 import microcontroller
 import os
 import supervisor
@@ -80,6 +81,9 @@ SESSION_TIMEOUT = 15
 DISPLAY_IDLE_TIMEOUT = 60 # for display blanking
 
 SETTINGS_NAME = "midibit_settings.text"
+SETTINGS_KEY_PRAC = "practice_seconds"
+SETTINGS_KEY_PLAY = "play_seconds"
+
 BG_FILE_NAME = "background.bmp" # default, to start with. FIXME
 BG_DIR = "/bmps/"
 
@@ -148,30 +152,52 @@ def show_total_time(disp, practice, play):
     disp.set_text_2(as_hms(play))
 
 
-def write_session_data(session_seconds, play_seconds):
-    '''Writes a string-ified version of the integer values.
+def write_session_data(practce_seconds, play_seconds):
+    '''Writes a string-ified version of the integer values to MCU's flash.
     This will throw an exception if the filesystem isn't writable. Catch it higher up.'''
-    print(f"write_session_data: {session_seconds=}, {play_seconds=}")
+    print(f"write_session_data: {practce_seconds=}, {play_seconds=}")
+
+    dict = {}
+    dict[SETTINGS_KEY_PRAC] = practce_seconds
+    dict[SETTINGS_KEY_PLAY] = play_seconds
+    
     with open(SETTINGS_NAME, "w") as f:
-        f.write(str(int(session_seconds)))
-        f.write(str(int(play_seconds)))
+        json.dump(dict, f)
+
+    # with open(SETTINGS_NAME, "w") as f:
+    #     f.write(str(int(practce_seconds)) + "\n")
+    #     f.write(str(int(play_seconds)))
 
 
 def read_session_data():
-    """Return a tuple of practice & play times (# of seconds) stored on SD card"""
+    """Return a tuple of practice & play times (# of seconds) stored on MCU's flash"""
 
-    t1 = t2 = 0
+    prac = play = 0
     try:
         with open(SETTINGS_NAME, "r") as f:
-            l1 = f.readline()
-            l2 = f.readline()
-        t1 = int(l1)
-        t2 = int(l2)
-    except:
+            dict = json.load(f)
+        prac = dict[SETTINGS_KEY_PRAC]
+        play = dict[SETTINGS_KEY_PLAY]
+        print(f"read_session_data: {prac=}, {play=}")
+    except Exception as e:
         print("No old session data? Continuing....")
+        print(f"{e}")
 
-    # print(f"read_session_data: returning {t1=} {t2=}")
-    return (t1, t2)
+    return prac, play
+
+
+    # t1 = t2 = 0
+    # try:
+    #     with open(SETTINGS_NAME, "r") as f:
+    #         l1 = f.readline()
+    #         l2 = f.readline()
+    #     t1 = int(l1)
+    #     t2 = int(l2)
+    # except:
+    #     print("No old session data? Continuing....")
+
+    # # print(f"read_session_data: returning {t1=} {t2=}")
+    # return (t1, t2)
 
 
 def find_midi_device(disp):
@@ -393,19 +419,21 @@ last_displayed_time = int(prac_seconds if practice_not_play_mode else play_secon
 idle_start_time = time.monotonic()
 idle_led_blip_time = idle_start_time
 
+# State machines to look for trigger sequences.
+#
 # A state machine to watch for the "reset" sequence.
 msm_reset = midi_state_machine.midi_state_machine(MIDI_TRIGGER_SEQ_RESET)
 
 # A state machine to watch for the "toggle boot mode" sequence.
 msm_toggle_boot = midi_state_machine.midi_state_machine(MIDI_TRIGGER_SEQ_TOGGLE_BOOT)
 
-# Advance the backlight
+# Advance the backlight?
 msm_backlight = midi_state_machine.midi_state_machine(MIDI_TRIGGER_SEQ_BACKLIGHT)
 
-# Toggle practice/play mode
+# Toggle practice/play mode?
 msm_toggle_practice = midi_state_machine.midi_state_machine(MIDI_TRIGGER_SEQ_TOGGLE_PRACTICE)
 
-# Display next background.
+# Display next background?
 msm_next_background = midi_state_machine.midi_state_machine(MIDI_TRIGGER_SEQ_NEXT_BACKGROUND)
 
 
