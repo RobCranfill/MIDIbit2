@@ -308,7 +308,6 @@ def test():
         count += 1
     
         disp.set_display_practice_mode(practice)
-        practice = not practice
 
         r = random.randint(15, 30)
         for i in range(r):
@@ -320,6 +319,7 @@ def test():
                 disp.set_text_2(f" {h_play:01}:{m_play:02}:{s_play:02}")
             time.sleep(.1)
 
+        practice = not practice
 
         if False:
             print("Testing screen blanking....")
