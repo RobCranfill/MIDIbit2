@@ -1,8 +1,8 @@
 '''
-A state machine to watch for a particular sequence of notes.
-Create the class, giving it the sequence being watched for;
-call 'note()' method with each new note;
-if the sequence is completed, note() will return true.
+    A state machine to watch for a particular sequence of notes.
+    Create the class, giving it the sequence being watched for;
+    call 'note()' method with each new note;
+    if the sequence is completed, note() will return true.
 '''
 
 import time

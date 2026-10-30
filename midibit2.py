@@ -25,6 +25,7 @@ To force startup mode (see README file)
      - after switching dev/run mode, reboot mcu?
      - show more info at startup? dev mode, uh?
      - save prac/play mode?
+     - Use NVM instead of filesystem to persist practice time?
 
     Things done, I think:
      - show message when changing backlight level?
@@ -91,11 +92,14 @@ BG_DIR = "/bmps/"
 MIDI_TRIGGER_SEQ_PREFIX = (67, 67, 67, 63, 65, 65, 65, 62)
 
 # Post-trigger 'command' note
-MIDI_TRIGGER_SEQ_RESET = MIDI_TRIGGER_SEQ_PREFIX + (60,) # middle C
-MIDI_TRIGGER_SEQ_TOGGLE_BOOT = MIDI_TRIGGER_SEQ_PREFIX + (62,) # D above middle C
-MIDI_TRIGGER_SEQ_BACKLIGHT = MIDI_TRIGGER_SEQ_PREFIX + (64,) # E
-MIDI_TRIGGER_SEQ_TOGGLE_PRACTICE = MIDI_TRIGGER_SEQ_PREFIX + (65,) # F
-MIDI_TRIGGER_SEQ_NEXT_BACKGROUND = MIDI_TRIGGER_SEQ_PREFIX + (67,) # G
+MIDI_TRIGGER_SEQ_RESET = MIDI_TRIGGER_SEQ_PREFIX + (60,)           # middle C
+MIDI_TRIGGER_SEQ_TOGGLE_BOOT = MIDI_TRIGGER_SEQ_PREFIX + (62,)     # D above middle C
+MIDI_TRIGGER_SEQ_BACKLIGHT = MIDI_TRIGGER_SEQ_PREFIX + (64,)       # E " " "
+MIDI_TRIGGER_SEQ_TOGGLE_PRACTICE = MIDI_TRIGGER_SEQ_PREFIX + (65,) # F " " " 
+
+# This is in-work (ie, it doesn't work)
+MIDI_TRIGGER_SEQ_NEXT_BACKGROUND = MIDI_TRIGGER_SEQ_PREFIX + (67,) # G " " "
+
 
 # Indicator colors when looking for MIDI
 NO_MIDI_BLINK_COLORS = [0x20_20_20, 0x80_80_80]
@@ -296,7 +300,7 @@ def find_midi_device(disp):
 def try_write_session_data(dev_mode, disp, practice_seconds, play_seconds):
     '''Write the given elapsed time to the data file. Display errors as needed.'''
     try:
-        write_session_data(practice_seconds, play_seconds)
+        write_session_data(int(practice_seconds), int(play_seconds))
         display_message_for_a_bit(disp, "DATA SAVED")
 
     except Exception as e:
@@ -351,7 +355,7 @@ def main():
 
 # ------------------------------------------------------------------------------
 # ------------------------------------------------------------------------------
-print("Version 2a")
+print("Version 2.alpha")
 
 # wait for USB ready - needed??
 # time.sleep(2)
@@ -565,13 +569,13 @@ while True:
 
                 set_display_practice_active(display, practice_not_play_mode)
 
-
-            elif msm_next_background.note(msg.note):
-                print(f"* Got {MIDI_TRIGGER_SEQ_NEXT_BACKGROUND=}")
-
-                bg_file_index = (bg_file_index + 1) % len(BG_FILES)
-                display.set_background(BG_DIR + BG_FILES[bg_file_index])
-
+    # FIXME: this was getting triggered when it wasn't supposed to, and also it blows chow. Removed for now.
+            # elif msm_next_background.note(msg.note):
+            #     print(f"* Got {MIDI_TRIGGER_SEQ_NEXT_BACKGROUND=}")
+            # 
+            #     bg_file_index = (bg_file_index + 1) % len(BG_FILES)
+            #     display.set_background(BG_DIR + BG_FILES[bg_file_index])
+            
             # elif msm_force_write.note(msg.note):
             #     # don't update prac_seconds yet, but write the new value
             #     total_seconds_temp = prac_seconds + session_length

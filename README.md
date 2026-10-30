@@ -1,5 +1,6 @@
 # MIDIbit
 MIDI Practice Monitor
+
 &copy;2026 Rob Cranfill
 
 # Purpose
@@ -20,10 +21,10 @@ Stretch goals (which will probably never happen): Internet connectivity, with an
   * In order to send commands to the unit from the MIDI keyboard, instead of using MIDI CC or PC commands, which some keyboards may not accomodate, you can play the first eight notes of Beethoven's 5th, starting on G above middle C, to get the unit's attentions.
     * That's G G G Eb F F F D; the tempo doesn't matter.
     * After the attention sequence,
-      * Middle C: Zero out session data, both onscreen and written to storage.
-      * D above middle C: Toggle next RUN/DEV mode (see below)
-      * E above middle C: Increment screen brightness; rolls thru a few useful values.
-      * F above middle C: Toggle practice/play time.
+      * __Middle C__: Zero out session data, both onscreen and written to storage.
+      * __D above middle C__: Toggle next RUN/DEV mode (see below)
+      * __E above middle C__: Increment screen brightness; rolls thru a few useful values.
+      * __F above middle C__: Toggle practice/play time.
     * Any other key after the attention sequence is ignored and normal operation resumes.
 
 * If no MIDI events are detected in the timeout period (60 seconds in RUN mode, 10 seconds in DEV mode (see below)) the screen will be blanked and the red LED will blink once per second (3 blinks per second if no MIDI, just for now).
@@ -53,7 +54,7 @@ Stretch goals (which will probably never happen): Internet connectivity, with an
 
 # Software Requirements
 * CircuitPython
-  * 10.2.1 used currently.
+  * 11.0.x beta used currently.
 * Adafruit support libraries
   * See requirements.txt for complete list and latest versions used.
 * Font: 22-point bitmap. of FreeType-CMU Typewriter Text-Bold-R-Normal, rendered from OpenType font "cmuntb.ttf", converted by Andrey V. Panov from TeX fonts. (Included)
